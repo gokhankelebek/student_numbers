@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Student Number Search</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+        }
+        input[type="file"] {
+            display: block;
+            margin-bottom: 10px;
+        }
+        input[type="text"], input[type="file"], textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #result {
+            margin-top: 20px;
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+        .help-text {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f8f8f8;
+        }
+        .copy-button {
+            background-color: #008CBA;
+            margin-top: 10px;
+        }
+        .copy-button:hover {
+            background-color: #007B9E;
+        }
+        .success {
+            background-color: #dff0d8;
+            border: 1px solid #d6e9c6;
+            color: #3c763d;
+        }
+        .not-found {
+            color: #dc3545;
+        }
+        #copyPagesButton {
+            background-color: #007bff;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #copyPagesButton:hover {
+            background-color: #0056b3;
+        }
+        #allPagesSection {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        #allPages {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Document Student Number Search</h1>
+        <form id="searchForm">
+            <div class="form-group">
+                <label for="file">Upload PDF Document:</label>
+                <input type="file" id="file" name="file" accept=".pdf" required>
+                <div class="help-text">Supported format: PDF</div>
+            </div>
+            <div class="form-group">
+                <label for="student_numbers">Student Numbers (up to 100, comma-separated):</label>
+                <textarea id="student_numbers" name="student_numbers" required placeholder="Enter student numbers separated by commas"></textarea>
+                <div class="help-text">Example: 12345, 67890, 11223</div>
+            </div>
+            <button type="submit">Search</button>
+        </form>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // Initialize the result div with table and all pages section
+        function initializeResultDiv() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `
+                <div class="results-container" style="display: none;">
+                    <h2>Search Results:</h2>
+                    <table id="resultsTable">
+                        <thead>
+                            <tr>
+                                <th>Student Number</th>
+                                <th>Found On Pages</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                    <div id="allPagesSection">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3 style="margin: 0;">All Pages with Student Numbers:</h3>
+                            <button id="copyPagesButton">Copy Pages</button>
+                        </div>
+                        <div id="allPages"></div>
+                    </div>
+                </div>
+            `;
+
+            // Add click handler for copy button
+            document.getElementById('copyPagesButton').addEventListener('click', copyToClipboard);
+        }
+
+        // Initialize the result div when the page loads
+        initializeResultDiv();
+
+        function copyToClipboard() {
+            const allPagesText = document.getElementById('allPages').textContent;
+            navigator.clipboard.writeText(allPagesText).then(() => {
+                const button = document.getElementById('copyPagesButton');
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.style.backgroundColor = '#28a745';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.style.backgroundColor = '#007bff';
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+            });
+        }
+
+        document.getElementById('searchForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            const file = document.getElementById('file').files[0];
+            const studentNumbers = document.getElementById('student_numbers').value;
+            
+            if (!file) {
+                showError('Please select a PDF file');
+                return;
+            }
+
+            if (!studentNumbers.trim()) {
+                showError('Please enter at least one student number');
+                return;
+            }
+            
+            formData.append('file', file);
+            formData.append('student_numbers', studentNumbers);
+            
+            const resultDiv = document.getElementById('result');
+            const resultsContainer = resultDiv.querySelector('.results-container');
+            
+            // Show loading state
+            resultDiv.innerHTML = '<div class="loading">Searching...</div>';
+            
+            try {
+                const response = await fetch('/search', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                // Reinitialize the result div
+                initializeResultDiv();
+                const resultsContainer = document.querySelector('.results-container');
+                
+                if (data.success) {
+                    resultsContainer.style.display = 'block';
+                    const tbody = document.querySelector('#resultsTable tbody');
+                    
+                    // Collect all unique pages
+                    const allPagesSet = new Set();
+                    
+                    data.results.forEach(result => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${result.student_number}</td>
+                            <td>${result.pages.length > 0 ? result.pages.join(', ') : 'Not found'}</td>
+                            <td>${result.found ? '✅ Found' : '❌ Not Found'}</td>
+                        `;
+                        tbody.appendChild(row);
+                        
+                        // Add pages to the set
+                        result.pages.forEach(page => allPagesSet.add(page));
+                    });
+                    
+                    // Display all unique pages section
+                    const allPagesSection = document.getElementById('allPagesSection');
+                    if (allPagesSet.size > 0) {
+                        const allPagesArray = Array.from(allPagesSet).sort((a, b) => a - b);
+                        document.getElementById('allPages').textContent = allPagesArray.join(', ');
+                        allPagesSection.style.display = 'block';
+                    } else {
+                        allPagesSection.style.display = 'none';
+                    }
+                } else {
+                    showError(data.error || 'An error occurred while processing your request');
+                }
+            } catch (error) {
+                showError('An error occurred while processing your request');
+                console.error('Error:', error);
+            }
+        });
+
+        function showError(message) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `<div class="error">${message}</div>`;
+        }
+    </script>
+</body>
+</html>
