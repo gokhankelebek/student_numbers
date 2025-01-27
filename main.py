@@ -9,11 +9,8 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['UPLOAD_FOLDER'] = '/tmp'  # Use /tmp for Vercel
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
-
-# Create uploads folder if it doesn't exist
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 def find_in_pdf(pdf_path, student_numbers):
     """
@@ -94,5 +91,7 @@ def search():
         logger.error(f"Error processing file: {str(e)}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
+# For local development
 if __name__ == '__main__':
-    app.run(debug=True, port=5009)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
